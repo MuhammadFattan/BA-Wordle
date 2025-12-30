@@ -2,18 +2,30 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import Grid from "../components/Grid";
 import Result from "../components/Result";
 import Keyboard from "../components/Keyboard";
+import StatsModal from "../components/StatsModal";
+import { useNavigate } from "react-router-dom";
 
-const API_BASE_URL = "http://localhost:3001/api/game";
+const API_BASE_URL = "http://localhost:3001/api";
 
 export default function Game() {
   const [currentRow, setCurrentRow] = useState(0);
+
   const [message, setMessage] = useState("");
+
   const [keyStatus, setKeyStatus] = useState({});
-  const [gameOver, setGameOver] = useState(false);
+
   const [wikiInfo, setWikiInfo] = useState(null);
+  const [stats, setStats] = useState(null);
+  const finishTimeoutRef = useRef(null);
+
+  const [gameOver, setGameOver] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const inputLockedRef = useRef(false);
+
+  const navigate = useNavigate();
+  const FLIP_DURATION = 1000;
 
   const emptyCell = () => ({ letter: "", status: "" });
 
@@ -29,148 +41,133 @@ export default function Game() {
     correct: 2,
   };
 
-  function updateKeyStatus(guessWord, result) {
+  const updateKeyStatus = (guessWord, result) => {
     setKeyStatus((prev) => {
       const next = { ...prev };
-
       guessWord.split("").forEach((char, i) => {
         const newStatus = result[i].status;
         const oldStatus = next[char];
-
         if (!oldStatus || priority[newStatus] > priority[oldStatus]) {
           next[char] = newStatus;
         }
       });
-
       return next;
     });
-  }
+  };
+
+  const finishGame = ({ correct, wiki, answer }) => {
+    if (inputLockedRef.current) return;
+    inputLockedRef.current = true;
+
+    if (finishTimeoutRef.current) {
+      clearTimeout(finishTimeoutRef.current);
+      finishTimeoutRef.current = null;
+    }
+
+    finishTimeoutRef.current = setTimeout(() => {
+      setGameOver(true);
+      setIsCorrect(correct);
+      setWikiInfo(wiki);
+      setMessage(
+        correct ? "Selamat! Jawaban Benar!" : `Game Over! Jawaban: ${answer}`
+      );
+
+      fetch(`${API_BASE_URL}/stats`)
+        .then((res) => res.json())
+        .then((data) => setStats(data))
+        .catch((err) => console.error(err));
+
+      finishTimeoutRef.current = null;
+    }, FLIP_DURATION);
+  };
 
   const handleKeyPress = useCallback(
     (key) => {
       if (inputLockedRef.current) return;
-      if (isSubmitting || gameOver || currentRow >= 6) return;
+      if (gameOver || isSubmitting || currentRow >= 6) return;
+
       if (key === "ENTER") {
-        if (guesses[currentRow].every((cell) => cell.letter !== "")) {
-          const guessWord = guesses[currentRow].map((c) => c.letter).join("");
-          setIsSubmitting(true); // Set submitting true sebelum fetch
-
-          fetch(`${API_BASE_URL}/guess`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ guess: guessWord }),
-          })
-            .then((res) => res.json())
-            .then((data) => {
-              setIsSubmitting(false); // Set submitting false setelah response
-              if (data.error) {
-                setMessage(data.error);
-                return;
-              }
-
-              // Update grid dengan status warna
-              setGuesses((prev) => {
-                const newGuesses = prev.map((row) =>
-                  row.map((cell) => ({ ...cell }))
-                );
-                newGuesses[currentRow] = newGuesses[currentRow].map(
-                  (cell, i) => ({
-                    letter: cell.letter,
-                    status: data.result[i].status,
-                  })
-                );
-                return newGuesses;
-              });
-
-              updateKeyStatus(guessWord, data.result);
-
-              console.log("GUESS RESPONSE:", data);
-
-              if (data.correct) {
-                inputLockedRef.current = true;
-                setIsCorrect(true);
-                setGameOver(true);
-                setWikiInfo(data.wiki);
-                setMessage("🎉 Selamat! Jawaban Benar!");
-              } else if (currentRow === 5) {
-                inputLockedRef.current = true;
-                setIsCorrect(false);
-                setGameOver(true);
-                setWikiInfo(data.wiki);
-                setMessage(`Game Over! Jawaban: ${data.word}`);
-              } else {
-                setCurrentRow((r) => r + 1);
-                setMessage("");
-              }
-            })
-            .catch((err) => {
-              setIsSubmitting(false); // Pastikan set false jika error
-              console.error(err);
-              setMessage("Terjadi kesalahan!");
-            });
-        } else {
+        if (!guesses[currentRow].every((c) => c.letter)) {
           setMessage("Lengkapi baris terlebih dahulu!");
+          return;
         }
+
+        const guessWord = guesses[currentRow].map((c) => c.letter).join("");
+        setIsSubmitting(true);
+
+        fetch(`${API_BASE_URL}/game/guess`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ guess: guessWord }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            setIsSubmitting(false);
+
+            if (data.error) {
+              setMessage(data.error);
+              return;
+            }
+
+            setGuesses((prev) => {
+              const copy = prev.map((r) => r.map((c) => ({ ...c })));
+              copy[currentRow] = copy[currentRow].map((cell, i) => ({
+                letter: cell.letter,
+                status: data.result[i].status,
+              }));
+              return copy;
+            });
+
+            updateKeyStatus(guessWord, data.result);
+
+            if (data.correct) {
+              finishGame({
+                correct: true,
+                wiki: data.wiki,
+                attempts: currentRow + 1,
+              });
+            } else if (currentRow === 5) {
+              finishGame({
+                correct: false,
+                wiki: data.wiki,
+                answer: data.word,
+                attempts: currentRow + 1,
+              });
+            } else {
+              setCurrentRow((r) => r + 1);
+              setMessage("");
+            }
+          })
+          .catch(() => {
+            setIsSubmitting(false);
+            setMessage("Terjadi kesalahan!");
+          });
       } else if (key === "BACKSPACE") {
         setGuesses((prev) => {
-          const copy = prev.map((row) => row.map((cell) => ({ ...cell })));
+          const copy = prev.map((r) => r.map((c) => ({ ...c })));
           for (let i = 4; i >= 0; i--) {
-            if (copy[currentRow][i].letter !== "") {
+            if (copy[currentRow][i].letter) {
               copy[currentRow][i].letter = "";
               break;
             }
           }
           return copy;
         });
-        setMessage("");
       } else if (/^[A-Z]$/.test(key)) {
         setGuesses((prev) => {
-          const copy = prev.map((row) => row.map((cell) => ({ ...cell })));
+          const copy = prev.map((r) => r.map((c) => ({ ...c })));
           for (let i = 0; i < 5; i++) {
-            if (copy[currentRow][i].letter === "") {
+            if (!copy[currentRow][i].letter) {
               copy[currentRow][i].letter = key;
               break;
             }
           }
           return copy;
         });
-        setMessage("");
       }
     },
-    [currentRow, gameOver, guesses, isSubmitting]
+    [currentRow, gameOver, guesses, isSubmitting, finishGame]
   );
-
-  const handlePlayAgain = () => {
-    inputLockedRef.current = false;
-    setCurrentRow(0);
-    setMessage("");
-    setKeyStatus({});
-    setGameOver(false);
-    setWikiInfo(null);
-    setIsCorrect(false);
-    setIsSubmitting(false); // Reset isSubmitting
-    setGuesses(
-      Array.from({ length: 6 }, () =>
-        Array.from({ length: 5 }, () => emptyCell())
-      )
-    );
-
-    // Fetch kata baru
-    fetch(`${API_BASE_URL}/new`, {
-      method: "POST",
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        console.log("New game started:", data);
-      })
-      .catch((err) => console.error(err));
-  };
-
-  useEffect(() => {
-    fetch(`${API_BASE_URL}/today`)
-      .then((res) => res.json())
-      .catch((err) => console.error(err));
-  }, []);
 
   useEffect(() => {
     if (gameOver) return;
@@ -189,32 +186,65 @@ export default function Game() {
     return () => window.removeEventListener("keydown", handler);
   }, [gameOver, handleKeyPress]);
 
+  useEffect(() => {
+    return () => {
+      if (finishTimeoutRef.current) {
+        clearTimeout(finishTimeoutRef.current);
+        finishTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/stats`)
+      .then((res) => res.json())
+      .then((data) => setStats(data))
+      .catch((err) => console.error(err));
+  }, []);
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      <h1 className="text-4xl font-bold mb-8 text-gray-800">
-        Blue Archive Wordle
-      </h1>
+    <div className="flex flex-col items-center min-h-screen bg-gray-100 p-4">
+      <div className="w-full max-w-md flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-800">
+          Blue Archive Wordle
+        </h1>
+
+        <button
+          onClick={() => setShowStats(true)}
+          className="text-2xl hover:scale-110 transition"
+          aria-label="Show Statistics"
+        >
+          📊
+        </button>
+      </div>
+
       <Grid guesses={guesses} />
+
       <Result
         message={message}
         wikiInfo={wikiInfo}
         isCorrect={isCorrect}
         gameOver={gameOver}
       />
+
       {gameOver && (
         <button
-          onClick={handlePlayAgain}
-          className="mt-6 px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors"
+          onClick={() => navigate("/")}
+          className="mt-6 px-6 py-3 bg-blue-500 text-white rounded-lg"
         >
-          Main Lagi
+          Kembali Ke Menu
         </button>
       )}
+
       <Keyboard
         onKeyPress={handleKeyPress}
         keyStatus={keyStatus}
         disabled={gameOver || isSubmitting}
-      />{" "}
-      {/* Tambahkan isSubmitting ke disabled */}
+      />
+
+      {showStats && (
+        <StatsModal stats={stats} onClose={() => setShowStats(false)} />
+      )}
     </div>
   );
 }
