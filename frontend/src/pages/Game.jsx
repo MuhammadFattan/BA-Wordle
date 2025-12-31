@@ -64,7 +64,7 @@ export default function Game() {
       finishTimeoutRef.current = null;
     }
 
-    finishTimeoutRef.current = setTimeout(() => {
+    finishTimeoutRef.current = setTimeout(async () => {
       setGameOver(true);
       setIsCorrect(correct);
       setWikiInfo(wiki);
@@ -72,10 +72,22 @@ export default function Game() {
         correct ? "Selamat! Jawaban Benar!" : `Game Over! Jawaban: ${answer}`
       );
 
-      fetch(`${API_BASE_URL}/stats`)
-        .then((res) => res.json())
-        .then((data) => setStats(data))
-        .catch((err) => console.error(err));
+      try {
+        await fetch(`${API_BASE_URL}/stats`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            win: correct,
+            guesses: correct ? currentRow + 1 : null,
+          }),
+        });
+
+        const res = await fetch(`${API_BASE_URL}/stats`);
+        const data = await res.json();
+        setStats(data);
+      } catch (err) {
+        console.error(err);
+      }
 
       finishTimeoutRef.current = null;
     }, FLIP_DURATION);

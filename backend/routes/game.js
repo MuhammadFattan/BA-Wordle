@@ -33,11 +33,18 @@ router.post("/guess", (req, res) => {
       .split("")
       .reduce((a, b) => a + Number(b), 0) % words.length;
 
-  const target = words[index].word;
+  const entry = words[index];
+  const target = entry.word.toUpperCase();
 
   const result = checkGuess(guess.toUpperCase(), target);
+  const correct = guess.toUpperCase() === target;
 
-  res.json({ result });
+  res.json({
+    result,
+    correct,
+    word: target,
+    wiki: entry.wiki,
+  });
 });
 
 module.exports = router;
