@@ -2,7 +2,8 @@ import { useState } from "react";
 import SharePreview from "./SharePreview";
 
 export default function GameActions({ 
-  onBackToMenu, 
+  onBackToMenu,
+  onShare,
   guesses, 
   isCorrect, 
   attempts, 
@@ -36,6 +37,7 @@ export default function GameActions({
           attempts={attempts}
           dayIndex={dayIndex}
           onClose={() => setShowSharePreview(false)}
+          onCopy={onShare}
         />
       )}
     </>
