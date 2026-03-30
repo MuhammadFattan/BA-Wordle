@@ -11,12 +11,9 @@ const priority = {
 
 const emptyCell = () => ({ letter: "", status: "" });
 
-export function useGameLogic({ onToast } = {}) {
+export function useGameLogic({ onToast, hardMode = false } = {}) {
   const [currentRow, setCurrentRow] = useState(0);
-
-  // message sekarang hanya untuk pesan permanen game over (tampil di Result.jsx)
   const [message, setMessage] = useState("");
-
   const [keyStatus, setKeyStatus] = useState({});
   const [wikiInfo, setWikiInfo] = useState(null);
   const [stats, setStats] = useState(null);
@@ -33,7 +30,6 @@ export function useGameLogic({ onToast } = {}) {
     )
   );
 
-  // Helper: kirim toast jika callback tersedia
   const toast = useCallback(
     (msg, type = "info", duration = 2000) => {
       onToast?.(msg, type, duration);
@@ -55,6 +51,42 @@ export function useGameLogic({ onToast } = {}) {
     });
   }, []);
 
+  const validateHardMode = useCallback(
+    (guessWord, prevGuesses) => {
+      if (!hardMode || currentRow === 0) return null;
+
+      const correctConstraints = [];
+      const presentConstraints = [];
+
+      for (let r = 0; r < currentRow; r++) {
+        prevGuesses[r].forEach((cell, i) => {
+          if (cell.status === "correct") {
+            correctConstraints.push({ letter: cell.letter, index: i });
+          } else if (cell.status === "present") {
+            presentConstraints.push({ letter: cell.letter });
+          }
+        });
+      }
+
+      const guessUpper = guessWord.toUpperCase();
+
+      for (const { letter, index } of correctConstraints) {
+        if (guessUpper[index] !== letter.toUpperCase()) {
+          return `Posisi ${index + 1} harus huruf ${letter.toUpperCase()}!`;
+        }
+      }
+
+      for (const { letter } of presentConstraints) {
+        if (!guessUpper.includes(letter.toUpperCase())) {
+          return `Harus menggunakan huruf ${letter.toUpperCase()}!`;
+        }
+      }
+
+      return null;
+    },
+    [hardMode, currentRow]
+  );
+
   const finishGame = useCallback(
     ({ correct, wiki, answer }) => {
       if (inputLockedRef.current) return;
@@ -69,15 +101,12 @@ export function useGameLogic({ onToast } = {}) {
         setGameOver(true);
         setIsCorrect(correct);
         setWikiInfo(wiki);
-
-        // Pesan permanen di Result.jsx (tidak berubah)
         setMessage(
           correct ? "Selamat! Jawaban Benar!" : `Game Over! Jawaban: ${answer}`
         );
 
-        // Toast singkat sebagai konfirmasi tambahan
         toast(
-          correct ? "🎉 Jawaban benar!" : `Jawaban: ${answer}`,
+          correct ? "Jawaban benar!" : `Jawaban: ${answer}`,
           correct ? "success" : "error",
           3000
         );
@@ -107,12 +136,18 @@ export function useGameLogic({ onToast } = {}) {
 
   const handleGuess = useCallback(async () => {
     if (!guesses[currentRow].every((c) => c.letter)) {
-      // Pakai toast untuk validasi, bukan message permanen
       toast("Lengkapi baris terlebih dahulu!", "error");
       return;
     }
 
     const guessWord = guesses[currentRow].map((c) => c.letter).join("");
+
+    const hardModeError = validateHardMode(guessWord, guesses);
+    if (hardModeError) {
+      toast(hardModeError, "error", 2500);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -126,7 +161,6 @@ export function useGameLogic({ onToast } = {}) {
       setIsSubmitting(false);
 
       if (data.error) {
-        // Error dari server (misal: kata tidak valid) pakai toast
         toast(data.error, "error");
         return;
       }
@@ -143,11 +177,7 @@ export function useGameLogic({ onToast } = {}) {
       updateKeyStatus(guessWord, data.result);
 
       if (data.correct) {
-        finishGame({
-          correct: true,
-          wiki: data.wiki,
-          attempts: currentRow + 1,
-        });
+        finishGame({ correct: true, wiki: data.wiki, attempts: currentRow + 1 });
       } else if (currentRow === 5) {
         finishGame({
           correct: false,
@@ -162,7 +192,7 @@ export function useGameLogic({ onToast } = {}) {
       setIsSubmitting(false);
       toast("Terjadi kesalahan koneksi!", "error");
     }
-  }, [currentRow, guesses, updateKeyStatus, finishGame, toast]);
+  }, [currentRow, guesses, updateKeyStatus, finishGame, toast, validateHardMode]);
 
   const handleLetter = useCallback(
     (key) => {

@@ -21,8 +21,8 @@ const API_BASE_URL = "http://localhost:3001/api";
 export default function Game() {
   const navigate = useNavigate();
   const [showStats, setShowStats] = useState(false);
+  const [hardMode, setHardMode] = useState(false);
 
-  // Toast system
   const { toasts, showToast, dismissToast } = useToast();
 
   const {
@@ -41,7 +41,18 @@ export default function Game() {
     handleGuess,
     handleLetter,
     handleBackspace,
-  } = useGameLogic({ onToast: showToast });
+  } = useGameLogic({ onToast: showToast, hardMode });
+
+  const handleToggleHardMode = () => {
+    if (gameOver) return;
+
+    const gameStarted = guesses.some((row) => row.some((c) => c.letter || c.status));
+    if (gameStarted && hardMode) {
+      showToast("Hard mode tidak bisa dimatikan setelah game dimulai!", "error");
+      return;
+    }
+    setHardMode((prev) => !prev);
+  };
 
   const handleKeyPress = useKeyboardHandler({
     gameOver,
@@ -61,7 +72,6 @@ export default function Game() {
     dayIndex,
   })}\n\n${generateShareGrid(guesses)}`;
 
-  // Handler share dengan toast "Copied to clipboard!"
   const handleShare = async () => {
     try {
       await navigator.clipboard.writeText(shareText);
@@ -71,7 +81,6 @@ export default function Game() {
     }
   };
 
-  // Fetch initial stats
   useEffect(() => {
     fetch(`${API_BASE_URL}/stats`)
       .then((res) => res.json())
@@ -79,7 +88,6 @@ export default function Game() {
       .catch((err) => console.error(err));
   }, [setStats]);
 
-  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (finishTimeoutRef.current) {
@@ -91,10 +99,13 @@ export default function Game() {
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-gray-100 p-4">
-      {/* Toast container — muncul di atas semua elemen */}
       <Toast toasts={toasts} onDismiss={dismissToast} />
 
-      <GameHeader onShowStats={() => setShowStats(true)} />
+      <GameHeader
+        onShowStats={() => setShowStats(true)}
+        hardMode={hardMode}
+        onToggleHardMode={handleToggleHardMode}
+      />
 
       <Grid guesses={guesses} />
 
@@ -108,11 +119,11 @@ export default function Game() {
       {gameOver && (
         <GameActions
           onBackToMenu={() => navigate("/")}
+          onShare={handleShare}
           guesses={guesses}
           isCorrect={isCorrect}
           attempts={currentRow + 1}
           dayIndex={dayIndex}
-          onShare={handleShare}
         />
       )}
 
