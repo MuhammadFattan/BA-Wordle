@@ -43,7 +43,7 @@ export default function SharePreview({
       aria-modal="true"
     >
       <div className="bg-white w-full max-w-sm rounded-xl p-6 relative shadow-lg flex flex-col items-center gap-4">
-        {/* tombol tutup */}
+        {/* Tombol tutup */}
         <button
           onClick={onClose}
           aria-label="Tutup"
@@ -60,7 +60,7 @@ export default function SharePreview({
           {isCorrect ? `✅ Selesai dalam ${attempts}/6` : "❌ Gagal"}
         </p>
 
-        {/* grid animasi */}
+        {/* Grid animasi */}
         <div className="space-y-1">
           {filledRows.slice(0, visibleRows).map((row, rIdx) => (
             <div key={rIdx} className="flex gap-1 justify-center">
@@ -74,7 +74,7 @@ export default function SharePreview({
           ))}
         </div>
 
-        {/* tombol copy */}
+        {/* Tombol copy */}
         <button
           onClick={handleCopy}
           className="mt-2 w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition text-sm font-medium flex items-center justify-center gap-2"

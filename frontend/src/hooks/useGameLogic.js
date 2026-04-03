@@ -11,7 +11,17 @@ const priority = {
 
 const emptyCell = () => ({ letter: "", status: "" });
 
-export function useGameLogic({ onToast, hardMode = false } = {}) {
+const TOKEN_KEY = "ba_wordle_token";
+const getToken = () => localStorage.getItem(TOKEN_KEY);
+
+const authHeaders = () => {
+  const token = getToken();
+  return token
+    ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
+    : { "Content-Type": "application/json" };
+};
+
+export function useGameLogic({ onToast, hardMode = false, dayIndex = 0 } = {}) {
   const [currentRow, setCurrentRow] = useState(0);
   const [message, setMessage] = useState("");
   const [keyStatus, setKeyStatus] = useState({});
@@ -114,14 +124,17 @@ export function useGameLogic({ onToast, hardMode = false } = {}) {
         try {
           await fetch(`${API_BASE_URL}/stats`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: authHeaders(),
             body: JSON.stringify({
               win: correct,
               guesses: correct ? currentRow + 1 : null,
+              dayIndex,
             }),
           });
 
-          const res = await fetch(`${API_BASE_URL}/stats`);
+          const res = await fetch(`${API_BASE_URL}/stats`, {
+            headers: authHeaders(),
+          });
           const data = await res.json();
           setStats(data);
         } catch (err) {
@@ -131,7 +144,7 @@ export function useGameLogic({ onToast, hardMode = false } = {}) {
         finishTimeoutRef.current = null;
       }, FLIP_DURATION);
     },
-    [currentRow, toast]
+    [currentRow, toast, dayIndex]
   );
 
   const handleGuess = useCallback(async () => {

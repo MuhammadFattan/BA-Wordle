@@ -1,5 +1,6 @@
 export default function GameHeader({
   onShowStats,
+  onShowLeaderboard,
   hardMode,
   onToggleHardMode,
 }) {
@@ -8,12 +9,13 @@ export default function GameHeader({
       <h1 className="text-3xl font-bold text-gray-800">Blue Archive Wordle</h1>
 
       <div className="flex items-center gap-3">
-        {/* Hard mode toggle */}
+        {/* Hard Mode toggle */}
         <button
           onClick={onToggleHardMode}
           title={hardMode ? "Hard Mode: ON" : "Hard Mode: OFF"}
           className={`
-            flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold border transition-all duration-200
+            flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold
+            border transition-all duration-200
             ${
               hardMode
                 ? "bg-red-500 border-red-600 text-white"
@@ -24,6 +26,16 @@ export default function GameHeader({
           🔥 {hardMode ? "HARD" : "NORMAL"}
         </button>
 
+        {/* Leaderboard button */}
+        <button
+          onClick={onShowLeaderboard}
+          className="text-2xl hover:scale-110 transition"
+          aria-label="Leaderboard"
+        >
+          🏆
+        </button>
+
+        {/* Stats button */}
         <button
           onClick={onShowStats}
           className="text-2xl hover:scale-110 transition"

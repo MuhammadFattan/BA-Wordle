@@ -25,6 +25,10 @@ export default function Game() {
 
   const { toasts, showToast, dismissToast } = useToast();
 
+  const dayIndex = getDayIndex();
+
+  const handleShowLeaderboard = () => navigate("/leaderboard");
+
   const {
     currentRow,
     message,
@@ -41,14 +45,19 @@ export default function Game() {
     handleGuess,
     handleLetter,
     handleBackspace,
-  } = useGameLogic({ onToast: showToast, hardMode });
+  } = useGameLogic({ onToast: showToast, hardMode, dayIndex });
 
   const handleToggleHardMode = () => {
     if (gameOver) return;
 
-    const gameStarted = guesses.some((row) => row.some((c) => c.letter || c.status));
+    const gameStarted = guesses.some((row) =>
+      row.some((c) => c.letter || c.status),
+    );
     if (gameStarted && hardMode) {
-      showToast("Hard mode tidak bisa dimatikan setelah game dimulai!", "error");
+      showToast(
+        "Hard mode tidak bisa dimatikan setelah game dimulai!",
+        "error",
+      );
       return;
     }
     setHardMode((prev) => !prev);
@@ -62,8 +71,6 @@ export default function Game() {
     onBackspace: handleBackspace,
     onLetter: handleLetter,
   });
-
-  const dayIndex = getDayIndex();
 
   const shareText = `${getShareText({
     win: isCorrect,
@@ -82,7 +89,9 @@ export default function Game() {
   };
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/stats`)
+    const token = localStorage.getItem("ba_wordle_token");
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    fetch(`${API_BASE_URL}/stats`, { headers })
       .then((res) => res.json())
       .then((data) => setStats(data))
       .catch((err) => console.error(err));
@@ -103,6 +112,7 @@ export default function Game() {
 
       <GameHeader
         onShowStats={() => setShowStats(true)}
+        onShowLeaderboard={handleShowLeaderboard}
         hardMode={hardMode}
         onToggleHardMode={handleToggleHardMode}
       />

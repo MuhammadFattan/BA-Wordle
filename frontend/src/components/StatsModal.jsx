@@ -1,8 +1,6 @@
 const StatsModal = ({ stats, onClose }) => {
-  if (!stats) return null;
-
-  const winRate = stats.played ? Math.round((stats.wins / stats.played) * 100) : 0;
-  const distributionValues = Object.values(stats.guessDistribution || {});
+  const winRate = stats?.played ? Math.round((stats.wins / stats.played) * 100) : 0;
+  const distributionValues = Object.values(stats?.guessDistribution || {});
   const maxValue = distributionValues.length ? Math.max(...distributionValues) : 1;
 
   return (
@@ -25,36 +23,44 @@ const StatsModal = ({ stats, onClose }) => {
           STATISTICS
         </h2>
 
-        <div className="grid grid-cols-4 gap-4 text-center mb-4">
-          <Stat label="Played" value={stats.played} />
-          <Stat label="Wins" value={stats.wins} />
-          <Stat label="Win %" value={`${winRate}%`} />
-          <Stat label="Streak" value={stats.currentStreak} />
-        </div>
-
-        <h3 className="font-semibold text-gray-700 mb-3">Guess Distribution</h3>
-
-        {stats.played === 0 ? (
-          <div className="text-sm text-gray-600">Belum ada statistik.</div>
-        ) : (
-          <div className="space-y-2">
-            {Object.entries(stats.guessDistribution)
-              .sort((a, b) => Number(a[0]) - Number(b[0]))
-              .map(([k, v]) => (
-                <div key={k} className="flex items-center gap-3 text-sm">
-                  <div className="w-6 text-right text-gray-700">{k}</div>
-
-                  <div className="flex-1 bg-gray-200 h-6 rounded overflow-hidden">
-                    <div
-                      className="bg-green-500 h-full text-white flex items-center px-3 text-sm"
-                      style={{ width: `${(v / maxValue) * 100}%` }}
-                    >
-                      {v}
-                    </div>
-                  </div>
-                </div>
-              ))}
+        {/* Loading state */}
+        {!stats ? (
+          <div className="flex justify-center py-8">
+            <div className="w-7 h-7 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
           </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-4 gap-4 text-center mb-4">
+              <Stat label="Played" value={stats.played} />
+              <Stat label="Wins" value={stats.wins} />
+              <Stat label="Win %" value={`${winRate}%`} />
+              <Stat label="Streak" value={stats.currentStreak} />
+            </div>
+
+            <h3 className="font-semibold text-gray-700 mb-3">Guess Distribution</h3>
+
+            {stats.played === 0 ? (
+              <div className="text-sm text-gray-600">Belum ada statistik.</div>
+            ) : (
+              <div className="space-y-2">
+                {Object.entries(stats.guessDistribution)
+                  .sort((a, b) => Number(a[0]) - Number(b[0]))
+                  .map(([k, v]) => (
+                    <div key={k} className="flex items-center gap-3 text-sm">
+                      <div className="w-6 text-right text-gray-700">{k}</div>
+                      <div className="flex-1 bg-gray-200 h-6 rounded overflow-hidden">
+                        <div
+                          className="bg-green-500 h-full text-white flex items-center px-3 text-sm"
+                          style={{ width: `${(v / maxValue) * 100}%` }}
+                        >
+                          {v}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </>
         )}
 
         <button
